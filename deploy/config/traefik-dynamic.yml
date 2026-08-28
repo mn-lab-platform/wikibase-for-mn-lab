@@ -1,0 +1,304 @@
+http:
+  services:
+    wikibase:
+      loadBalancer:
+        servers:
+          - url: "http://wikibase:80"
+
+    wdqs:
+      loadBalancer:
+        servers:
+          - url: "http://wdqs:9999"
+
+    wdqs-frontend:
+      loadBalancer:
+        servers:
+          - url: "http://wdqs-frontend:80"
+
+    quickstatements:
+      loadBalancer:
+        servers:
+          - url: "http://quickstatements:80"
+
+    cradle:
+      loadBalancer:
+        servers:
+          - url: "http://cradle:80"
+
+  routers:
+    wikibase-root-router:
+      rule: 'Host(`{{ env "WIKIBASE_PUBLIC_HOST" }}`) && Path(`/`)'
+      service: wikibase
+      priority: 100
+      middlewares: [ wikibase-root-redirect ]
+
+    wikibase-item-prefix-redirect-router:
+      rule: 'Host(`{{ env "WIKIBASE_PUBLIC_HOST" }}`) && PathRegexp(`^/wiki/[Ii]tem:([Qq][0-9]+)$`)'
+      service: wikibase
+      priority: 90
+      middlewares: [ item-prefix-redirect ]
+
+    wikibase-property-prefix-redirect-router:
+      rule: 'Host(`{{ env "WIKIBASE_PUBLIC_HOST" }}`) && PathRegexp(`^/wiki/[Pp]roperty:([Pp][0-9]+)$`)'
+      service: wikibase
+      priority: 90
+      middlewares: [ property-prefix-redirect ]
+
+    wikibase-short-item-router:
+      rule: 'Host(`{{ env "WIKIBASE_PUBLIC_HOST" }}`) && PathRegexp(`^/[Ii]tem:([Qq][0-9]+)$`)'
+      service: wikibase
+      priority: 85
+      middlewares: [ short-item-redirect ]
+
+    wikibase-short-property-router:
+      rule: 'Host(`{{ env "WIKIBASE_PUBLIC_HOST" }}`) && PathRegexp(`^/[Pp]roperty:([Pp][0-9]+)$`)'
+      service: wikibase
+      priority: 85
+      middlewares: [ short-property-redirect ]
+
+    wikibase-qid-router:
+      rule: 'Host(`{{ env "WIKIBASE_PUBLIC_HOST" }}`) && PathRegexp(`^/[Qq][0-9]+$`)'
+      service: wikibase
+      priority: 80
+      middlewares: [ qid-redirect ]
+
+    wikibase-pid-router:
+      rule: 'Host(`{{ env "WIKIBASE_PUBLIC_HOST" }}`) && PathRegexp(`^/[Pp][0-9]+$`)'
+      service: wikibase
+      priority: 80
+      middlewares: [ pid-redirect ]
+
+    wikibase-prop-direct-router:
+      rule: 'Host(`{{ env "WIKIBASE_PUBLIC_HOST" }}`) && PathRegexp(`^/prop/direct/([Pp][0-9]+)$`)'
+      service: wikibase
+      priority: 80
+      middlewares: [ prop-direct-redirect ]
+
+    wikibase-wiki-qid-router:
+      rule: 'Host(`{{ env "WIKIBASE_PUBLIC_HOST" }}`) && PathRegexp(`^/wiki/[Qq][0-9]+$`)'
+      service: wikibase
+      priority: 70
+      middlewares: [ wiki-qid-rewrite ]
+
+    wikibase-wiki-pid-router:
+      rule: 'Host(`{{ env "WIKIBASE_PUBLIC_HOST" }}`) && PathRegexp(`^/wiki/[Pp][0-9]+$`)'
+      service: wikibase
+      priority: 70
+      middlewares: [ wiki-pid-rewrite ]
+
+    wikibase-special-entitydata-router:
+      rule: 'Host(`{{ env "WIKIBASE_PUBLIC_HOST" }}`) && PathPrefix(`/wiki/Special:EntityData/`)'
+      service: wikibase
+      priority: 70
+      middlewares: [ special-entitydata-rewrite ]
+
+    wikibase-entity-router:
+      rule: 'Host(`{{ env "WIKIBASE_PUBLIC_HOST" }}`) && PathPrefix(`/entity/`)'
+      service: wikibase
+      priority: 70
+      middlewares: [ entitydata-from-entity-rewrite ]
+
+    wikibase-favicon-router:
+      rule: 'Host(`{{ env "WIKIBASE_PUBLIC_HOST" }}`) && Path(`/favicon.ico`)'
+      service: wikibase
+      priority: 70
+      middlewares: [ favicon-redirect ]
+
+    wikibase-wiki-cradle-router:
+      rule: 'Host(`{{ env "WIKIBASE_PUBLIC_HOST" }}`) && PathRegexp(`^/wiki/[Cc]radle/?$`)'
+      service: wikibase
+      priority: 85
+      middlewares: [ wiki-cradle-redirect ]
+
+    short-cradle-router:
+      rule: 'Host(`{{ env "WIKIBASE_PUBLIC_HOST" }}`) && PathRegexp(`^/[Cc]radle/?$`)'
+      service: cradle
+      priority: 85
+      middlewares: [ short-cradle-redirect ]
+
+    short-quickstatements-router:
+      rule: 'Host(`{{ env "WIKIBASE_PUBLIC_HOST" }}`) && PathRegexp(`^/[Qq]uickstatements/?$`)'
+      service: quickstatements
+      priority: 85
+      middlewares: [ short-quickstatements-redirect ]
+
+    wikibase-router:
+      rule: 'Host(`{{ env "WIKIBASE_PUBLIC_HOST" }}`) && (PathPrefix(`/wiki`) || PathPrefix(`/w`))'
+      service: wikibase
+      priority: 10
+
+    wdqs-router:
+      rule: 'Host(`{{ env "WIKIBASE_PUBLIC_HOST" }}`) && PathPrefix(`/sparql`) && (Method(`GET`) || Method(`OPTIONS`) || Method(`POST`))'
+      service: wdqs
+      priority: 50
+      middlewares: [ wdqs-prefix, wdqs-headers, wdqs-cors-headers, wdqs-rate-limit ]
+
+    wdqs-frontend-router:
+      rule: 'Host(`{{ env "WIKIBASE_PUBLIC_HOST" }}`) && PathPrefix(`/query`)'
+      service: wdqs-frontend
+      priority: 50
+      middlewares: [ query-redirectregex, query-stripprefix ]
+
+    wdqs-frontend-assets-router:
+      rule: 'Host(`{{ env "WIKIBASE_PUBLIC_HOST" }}`) && (PathPrefix(`/css`) || PathPrefix(`/js`) || Path(`/logo.svg`) || Path(`/custom-config.json`))'
+      service: wdqs-frontend
+      priority: 40
+
+    quickstatements-router:
+      rule: 'Host(`{{ env "WIKIBASE_PUBLIC_HOST" }}`) && PathPrefix(`/tools/quickstatements`)'
+      service: quickstatements
+      priority: 50
+      middlewares: [ quickstatements-redirectregex, quickstatements-stripprefix ]
+
+    cradle-router:
+      rule: 'Host(`{{ env "WIKIBASE_PUBLIC_HOST" }}`) && PathPrefix(`/tools/cradle`)'
+      service: cradle
+      priority: 50
+      middlewares: [ cradle-redirectregex, cradle-stripprefix ]
+
+  middlewares:
+    wikibase-root-redirect:
+      redirectRegex:
+        regex: ^https?://([^/]+)/$
+        replacement: https://$1/wiki/
+        permanent: true
+
+    item-prefix-redirect:
+      redirectRegex:
+        regex: ^https?://([^/]+)/wiki/[Ii]tem:([Qq][0-9]+)$
+        replacement: https://$1/wiki/$2
+        permanent: true
+
+    property-prefix-redirect:
+      redirectRegex:
+        regex: ^https?://([^/]+)/wiki/[Pp]roperty:([Pp][0-9]+)$
+        replacement: https://$1/wiki/$2
+        permanent: true
+
+    short-item-redirect:
+      redirectRegex:
+        regex: ^https?://([^/]+)/[Ii]tem:([Qq][0-9]+)$
+        replacement: https://$1/wiki/$2
+        permanent: true
+
+    short-property-redirect:
+      redirectRegex:
+        regex: ^https?://([^/]+)/[Pp]roperty:([Pp][0-9]+)$
+        replacement: https://$1/wiki/$2
+        permanent: true
+
+    qid-redirect:
+      redirectRegex:
+        regex: ^https?://([^/]+)/([Qq][0-9]+)$
+        replacement: https://$1/wiki/$2
+        permanent: true
+
+    pid-redirect:
+      redirectRegex:
+        regex: ^https?://([^/]+)/([Pp][0-9]+)$
+        replacement: https://$1/wiki/$2
+        permanent: true
+
+    prop-direct-redirect:
+      redirectRegex:
+        regex: ^https?://([^/]+)/prop/direct/([Pp][0-9]+)$
+        replacement: https://$1/wiki/$2
+        permanent: true
+
+    favicon-redirect:
+      redirectRegex:
+        regex: ^https?://([^/]+)/favicon\.ico$
+        replacement: https://$1/w/images/logo.png
+        permanent: true
+
+    wiki-cradle-redirect:
+      redirectRegex:
+        regex: ^https?://([^/]+)/wiki/[Cc]radle/?$
+        replacement: https://$1/wiki/Project:Cradle
+        permanent: true
+
+    short-cradle-redirect:
+      redirectRegex:
+        regex: ^https?://([^/]+)/[Cc]radle/?$
+        replacement: https://$1/tools/cradle/
+        permanent: true
+
+    short-quickstatements-redirect:
+      redirectRegex:
+        regex: ^https?://([^/]+)/[Qq]uickstatements/?$
+        replacement: https://$1/tools/quickstatements/
+        permanent: true
+
+    wiki-qid-rewrite:
+      replacePathRegex:
+        regex: ^/wiki/([Qq][0-9]+)$
+        replacement: /w/index.php/Item:$1
+
+    wiki-pid-rewrite:
+      replacePathRegex:
+        regex: ^/wiki/([Pp][0-9]+)$
+        replacement: /w/index.php/Property:$1
+
+    special-entitydata-rewrite:
+      replacePathRegex:
+        regex: ^/wiki/(Special:EntityData/.*)$
+        replacement: /w/index.php/$1
+
+    entitydata-from-entity-rewrite:
+      replacePathRegex:
+        regex: ^/entity/(.*)$
+        replacement: /w/index.php/Special:EntityData/$1
+
+    query-stripprefix:
+      stripPrefix:
+        prefixes:
+          - "/query"
+
+    query-redirectregex:
+      redirectRegex:
+        regex: /query$
+        replacement: /query/
+        permanent: true
+
+    wdqs-prefix:
+      addPrefix:
+        prefix: /bigdata/namespace/wdq/
+
+    wdqs-headers:
+      headers:
+        accessControlAllowMethods: "GET,OPTIONS,POST"
+        customResponseHeaders:
+          VARY: Accept
+        customRequestHeaders:
+          X-BIGDATA-READ-ONLY: yes
+          X-BIGDATA-MAX-QUERY-MILLIS: "300000"
+
+    wdqs-cors-headers:
+      headers:
+        accessControlAllowHeaders: "*"
+
+    wdqs-rate-limit:
+      rateLimit:
+        burst: 30
+        average: 60
+        period: 1m
+
+    quickstatements-redirectregex:
+      redirectRegex:
+        regex: /tools/quickstatements$
+        replacement: /tools/quickstatements/
+        permanent: true
+
+    quickstatements-stripprefix:
+      stripPrefix:
+        prefixes: [ /tools/quickstatements ]
+
+    cradle-stripprefix:
+      stripPrefix:
+        prefixes: [ /tools/cradle ]
+
+    cradle-redirectregex:
+      redirectRegex:
+        regex: /tools/cradle$
+        replacement: /tools/cradle/
+        permanent: true
